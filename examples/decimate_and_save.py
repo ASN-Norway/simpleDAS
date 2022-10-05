@@ -7,27 +7,23 @@ The objective of this file is to illustrate basic processing of data
 using scipy.signal and saving to file
 """
 
-import simpleDAS.simpleDASreader8 as simpleDASreader
-import pandas as pd
+import simpleDASreader
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.colors as colors
-from matplotlib import mlab
 import scipy.signal as sps
 import datetime,os
 
 
 #%% Find input files from experiment input folder and time interval
+input_folder = '/raid1/fsi/exps/DASdisplay_demo_files/FrequencySweep/'
 
-#input_folder = '/mnt/superb_raid1//FSI_Testdata/FileVersion8/v8test_dascontrol'
-input_folder = os.path.expanduser('~/mnt/superb/raid1/FSI_Testdata/FileVersion8/v8test_dascontrol')
-#input_folder = '/raid1/FSI_Testdata/FileVersion8/v8test_dascontrol'
-start = datetime.datetime(2022, 4, 22, 7, 59, 10)
-duration = datetime.timedelta(seconds=30)
+start = datetime.datetime(2021, 5, 31, 5, 44, 0)
+duration = datetime.timedelta(seconds=18)
+
 
 # Request a subset of channels. The function below will inspect the file and 
 # determine which channels exist in the file, returned as the chIndex variable
-channels = np.arange(7500, 10500, 4)
+channels = np.arange(7500, 10500, 5)
 
 file_names, chIndex, samples = simpleDASreader.find_DAS_files(input_folder, start, duration,
                                                               channels=channels,load_file_from_start=False)
@@ -69,3 +65,8 @@ plt.plot(signal_decimated[7500],label='Undecimated')
 import matplotlib.dates as mdates
 plt.gca().xaxis.set_minor_formatter(mdates.DateFormatter("%M:%s"))
 plt.legend()
+
+#%% reload data
+
+file_names, chIndex, samples = simpleDASreader.find_DAS_files(input_folder, start, duration,datatype='processed')
+signal_reloaded = simpleDASreader.load_DAS_files(file_names, chIndex, samples)

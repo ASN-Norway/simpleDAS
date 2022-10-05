@@ -19,14 +19,14 @@ import datetime,os
 
 #%% Find input files from experiment input folder and time interval
 
-#input_folder = '/raid1/FSI_Testdata/FileVersion8/v8test_dascontrol/dphi_dec'
-input_folder = os.path.expanduser('~/mnt/superb/raid1/FSI_Testdata/FileVersion8/v8test_dascontrol/dphi_dec')
-start = datetime.datetime(2022, 4, 22, 7, 55, 51)
+input_folder = '/raid1/fsi/exps/DASdisplay_demo_files/FrequencySweep/'
+
+start = datetime.datetime(2021, 5, 31, 5, 44, 0)
 duration = datetime.timedelta(seconds=18)
 
 # Request a subset of channels. The function below will inspect the file and 
 # determine which channels exist in the file, returned as the chIndex variable
-channels = np.arange(7500, 10500, 4)
+channels = np.arange(7500, 10500, 5)
 
 file_names, chIndex, samples = simpleDASreader.find_DAS_files(input_folder, start, duration,
                                                               channels=channels,load_file_from_start=False)
@@ -49,14 +49,14 @@ plt.colorbar()
 
 #%% Compare the time series data for few channels
 plt.figure(2,clear=True)
-for ch in range(7500, 10000, 500):
+for ch in range(7500, 9000, 500):
     plt.plot(signal[ch], label=str(ch))
 plt.legend()
 plt.gca().xaxis.set_major_formatter(mdates.DateFormatter("%M:%S"))
 #Alternative 
 
 plt.figure(2,clear=True); ax = plt.gca()
-chs = range(7500, 10000, 500)
+chs = np.arange(7500, 9000, 500)
 plt.plot(signal.loc[:start+datetime.timedelta(seconds=3.),chs])
 plt.legend(['Ch %d' %ch for ch in chs])
 plt.xlabel('Time')
@@ -65,17 +65,14 @@ plt.gca().xaxis.set_major_formatter(mdates.DateFormatter("%M:%S"))
 
 #%% Compare the PSD for the same channels
 
-#frequencies = np.fft.rfftfreq(Nt, dt)
 plt.figure(3,clear=True)
-for ch in range(7500, 10000, 500):
-#    plt.loglog(frequencies, np.power(np.absolute(np.fft.rfft(signal[ch], Nt)), 2),
-#               label=str(ch))
-     plt.loglog(*sps.welch(signal[ch],fs=1/signal.meta['dt'],axis=0),
-                label=str(ch))
-
-
+for ch in range(7500, 9000, 500):
+    f,Pxx = sps.welch(signal[ch],fs=1/signal.meta['dt'],axis=0)
+    plt.loglog(f,np.sqrt(Pxx), label=f'Ch {ch}')
+plt.xlabel('Frequency [Hz]')
+plt.ylabel('Amplitude spectral density [%s/√Hz]'% signal.meta['unit'])
 plt.legend()
-
+plt.tight_layout()
 #%% Export the first 3 seconds of channel data to a csv file
 
 signal[: start+datetime.timedelta(seconds=3.)].to_csv('das_data.csv')

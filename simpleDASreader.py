@@ -156,7 +156,9 @@ def load_DAS_files(filepaths, chIndex=None,samples=None, sensitivitySelect=0,
             nSamples,nChs = f['data'].shape
             if n==0:
                 m = f.load_dict(skipFields=['data'])
-                _fix_meta(m,nSamples,nChs)                    
+                _fix_meta(m,nSamples,nChs) 
+                if len(m['header']['channels'][chIndex])==0:
+                    raise IndexError(f'chIndexes {chIndex} not in data (nChannels = {nChs})')
                 samples_max = (nSamples+1)*len(filepaths)
                 channels_max = len(range(nChs)[chIndex]) if isinstance(chIndex,slice) else len(chIndex)
                 data = np.zeros((samples_max,channels_max),dtype=np.float32)
@@ -215,7 +217,7 @@ def load_DAS_files(filepaths, chIndex=None,samples=None, sensitivitySelect=0,
         signalnd[np.abs(signalnd)>spikeThr*sensitivity] = 0
     
     if integrate:
-        unit_new=_combine_units([unit_out, 's'])
+        unit_new=_combine_units([unit_out, 's'])        
         if not any([u == 's' for u in re.findall(r"[\w']+",unit_new)]): #check that s in not in unit after integraion
             signalnd=np.cumsum(signalnd,axis=0)*m['header']['dt']
             unit_out = unit_new
@@ -232,7 +234,7 @@ def load_DAS_files(filepaths, chIndex=None,samples=None, sensitivitySelect=0,
     t = create_time_axis(tstart,nSamples,m['header']['dt'])
     
     #create pandas dataframe
-    meta = {key:m['header'][key] for key in ['dt','dx','gaugeLength','experiment','dimensionRanges','dimensionUnits','dimensionNames','name']}    
+    meta = {key:m['header'][key] for key in ['dt','dx','gaugeLength','experiment','dataType','dimensionRanges','dimensionUnits','dimensionNames','name']}    
     meta.update(fileVersion = m['fileVersion'],
                 time=tstart,
                 unit=unit_out,
@@ -368,17 +370,17 @@ def find_DAS_files(experiment_path, start, duration, channels=None, datatype='dp
         
         if show_header_info:
             print('-- Header info file: %s --'% os.path.basename(ffidpaths[0]))
-            print('\tExperiment:    \t\t\t%s'% header['experiment'])
-            print('\tFile timestamp:\t\t\t%s'%headerTime.strftime("%Y-%m-%d %H:%M:%S"))
-            print('\tType of data:  \t\t\t%s, unit: %s'% (header['name'],header['unit']))
-            print('\tSampling frequency:\t\t%.2f Hz' %(1.0/header['dt']))
-            print('\tData shape:\t\t\t\t%d samples x %d channels' %(nSamples,nChs))
-            print('\tGauge length: \t\t\t%.1f m' % header['gaugeLength'])
-            print('\tSensitivities:\t\t\t%s' %','.join('%.2e %s' % (sens, unit) for sens,unit in zip(header['sensitivities'][:,0],header['sensitivityUnits'])))
+            print('\tExperiment:            %s'% header['experiment'])
+            print('\tFile timestamp:        %s'%headerTime.strftime("%Y-%m-%d %H:%M:%S"))
+            print('\tType of data:          %s, unit: %s'% (header['name'],header['unit']))
+            print('\tSampling frequency:    %.2f Hz' %(1.0/header['dt']))
+            print('\tData shape:            %d samples x %d channels' %(nSamples,nChs))
+            print('\tGauge length:          %.1f m' % header['gaugeLength'])
+            print('\tSensitivities:         %s' %','.join('%.2e %s' % (sens, unit) for sens,unit in zip(header['sensitivities'][:,0],header['sensitivityUnits'])))
             dim1 = header['dimensionRanges']['dimension1']
-            print('\tRegions of interest:\t%s' % ','.join(['%d:%d:%d' %(start,stop, (stop+1-start)//size)                        
+            print('\tRegions of interest:   %s' % ','.join(['%d:%d:%d' %(start,stop, (stop+1-start)//size)                        
                     for start,stop,size in zip(dim1['min'],dim1['max'],dim1['size'])]))
-
+            
         #calculate channel indices
         if isinstance(channels,slice):
             try:
@@ -394,8 +396,8 @@ def find_DAS_files(experiment_path, start, duration, channels=None, datatype='dp
             channels_found, chIndex, _ = np.intersect1d(header_channels, channels, return_indices=True)
             if show_header_info:
                 with np.printoptions(threshold=20):
-                    print('\t%d channels requested:\t%s' % (len(channels),channels))
-                    print('\t%d channels found:\t\t%s' % (len(channels_found),channels_found))
+                    print('\t%d channels requested:%s' % (len(channels),channels))
+                    print('\t%d channels found:    %s' % (len(channels_found),channels_found))
         else:
             chIndex = None
     else:
@@ -482,7 +484,7 @@ def save_to_DAS_file(signal,filepath=None,datatype='processed'):
     print('Saving to file: ' + filepath)
     
     utctimestamp = signal.meta['time'].replace(tzinfo=datetime.timezone.utc).timestamp()
-    signal._setDimensionRange()
+    signal._set_dimensionRange()
     header = signal.meta.copy()
     header.update(channels = signal.columns,dataScale = np.float32(1.0),
                   time=utctimestamp,spatialUnwrRange=np.float32(0.0),
@@ -545,9 +547,9 @@ class DASDataFrame(pd.DataFrame):
         super().__init__(data, index, columns, dtype, copy)
         self.meta = meta.copy()
         if len(meta):
-            self._setDimensionRange()
+            self._set_dimensionRange()
         
-    def _setDimensionRange(self):
+    def _set_dimensionRange(self):
         '''
         Compute the meta|dimensionRanges
         '''
@@ -596,6 +598,22 @@ def str2datetime(sdt,dateonly=False):
             dt = datetime.datetime.strptime(sdt,'%Y%m%d %H%M%S')    
     return dt
 
+
+def convert_index_to_rel_time(signal):
+    '''
+    Convert the pandas index from datatime to float seconds relative to first sample
+
+    Parameters
+    ----------
+    signal : pandas dataframe
+        The dataframe to be modified
+    inplace: bool
+        Do inplace replacement of data frame else return a copy
+
+
+    '''
+    signal['t'] = (signal.index-signal.index[0]).total_seconds() # seconds from start of data
+    signal.set_index('t',inplace=True) # set t as the new index
 
 def create_time_axis(tstart,nSamples,dt):
     """
@@ -698,12 +716,13 @@ def _fix_meta(meta,nSamples,nChannels):
                              'refractiveIndex':1.4677,
                             'zeta':0.78}
 
-    dx_fiber = meta['demodSpec']['dTau']*c/(2*meta['cableSpec']['refractiveIndex'])
+    if 'dx' not in meta['header'] or 'gaugeLength' not in meta['header']:
+        dx_fiber = meta['demodSpec']['dTau']*c/(2*meta['cableSpec']['refractiveIndex'])
 
-    if 'dx' not in meta['header']:
-        meta['header']['dx']= dx_fiber/meta['cableSpec']['fiberOverLength']
-    if 'gaugeLength' not in meta['header']:
-        meta['header']['gaugeLength']= meta['demodSpec']['nDiffTau']*dx_fiber
+        if 'dx' not in meta['header']:
+            meta['header']['dx']= dx_fiber/meta['cableSpec']['fiberOverLength']
+        if 'gaugeLength' not in meta['header']:
+            meta['header']['gaugeLength']= meta['demodSpec']['nDiffTau']*dx_fiber
 
     if 'dataScale' not in meta['header']:
         meta['header']['dataScale']=np.pi/2**29/meta['header']['dt']/meta['header']['gaugeLength']
@@ -713,9 +732,9 @@ def _fix_meta(meta,nSamples,nChannels):
     
  
     if 'dimensionRanges' not in meta['header']:
-        meta['header'].update(dimensionRange = {})
+        meta['header'].update(dimensionRanges = {})
         #time dimension
-        meta['header']['dimensionRange'].update(dimension0 = \
+        meta['header']['dimensionRanges'].update(dimension0 = \
                         {'min':0,'max':nSamples-1,
                          'size': nSamples,
                          'unitScale':meta['header']['dt']})
@@ -733,14 +752,14 @@ def _fix_meta(meta,nSamples,nChannels):
             cols = meta['demodSpec']
             
             
-        meta['header']['dimensionRange'].update(dimension1 = \
+        meta['header']['dimensionRanges'].update(dimension1 = \
                          {'min':cols['roiStart'],'max':cols['roiEnd'],
                           'size': (cols['roiEnd']-cols['roiStart']+1)//cols['roiDec'],
                           'unitScale':meta['header']['dx']})
             
         meta['header'].update(dimensionSizes = np.r_[nSamples,nChannels],
-                              dimensionNames = np.r_['time','distance'],
-                              dimensionUnits = np.r_['s','m'],
+                              dimensionNames = ['time','distance'],
+                              dimensionUnits = ['s','m'],
                               name = 'Phase rate per distance')
     
     if 'channels' not in meta['header']: #construct channels from roi
@@ -769,5 +788,8 @@ def _fix_meta(meta,nSamples,nChannels):
     elif 'sensitivityUnits' in meta['header'] and meta['header']['sensitivityUnits'][0] == 'strain/s': #bug in preliminary fileversion 8
         meta['header']['sensitivityUnits'] = ['rad/(strain*m)']
         
-           
+    if 'unit' in meta['header']:
+        meta['header']['unit']=meta['header']['unit'].replace('·','*').replace('ε','strain')
+    if 'sensitivityUnits' in meta['header']:
+        meta['header']['sensitivityUnits'] = [u.replace('·','*').replace('ε','strain') for u in meta['header']['sensitivityUnits']]
     
