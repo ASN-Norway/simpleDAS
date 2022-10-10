@@ -23,7 +23,7 @@ duration = datetime.timedelta(seconds=18)
 
 # Request a subset of channels. The function below will inspect the file and 
 # determine which channels exist in the file, returned as the chIndex variable
-channels = np.arange(7500, 10500, 5)
+channels = np.r_[np.arange(7500, 8000, 5),np.arange(8500, 9000, 5)]
 
 file_names, chIndex, samples = simpleDASreader.find_DAS_files(input_folder, start, duration,
                                                               channels=channels,load_file_from_start=False)

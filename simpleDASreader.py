@@ -356,7 +356,7 @@ def find_DAS_files(experiment_path, start, duration, channels=None, datatype='dp
 
         header = m['header']
         #calculate sample range
-        nSamples = int(duration.total_seconds()/header['dt']+.5)
+        nSamples_to_be_read = int(duration.total_seconds()/header['dt']+.5)
         #headerTime = datetime.datetime.utcfromtimestamp(float(header['time']))
         headerTime = headerTimes[0]
         if datetime_start.year == 1900: # replace the placeholder date 19000101 with date from headerTime
@@ -366,7 +366,7 @@ def find_DAS_files(experiment_path, start, duration, channels=None, datatype='dp
             startSample = 0 
         else:            
             startSample = max(0, int((datetime_start-headerTime).total_seconds()/header['dt']+.5))
-        samples = slice(startSample,startSample+nSamples)
+        samples = slice(startSample,startSample+nSamples_to_be_read)
         
         if show_header_info:
             print('-- Header info file: %s --'% os.path.basename(ffidpaths[0]))
@@ -556,13 +556,14 @@ class DASDataFrame(pd.DataFrame):
                 
         chs = np.array(self.columns)
         d2chs = np.diff(chs,n=2) #=0 within a roi
+        d2chs[np.r_[False,np.logical_and(d2chs[:-1],d2chs[1:])]]=0 #remove subseqent indexes due to double differensiation
         stopind = np.r_[np.where(d2chs!=0)[0]+1,len(chs)-1] #where to split roi and create a new
-        startind = np.r_[0,stopind[:-1]]
+        startind = np.r_[0,stopind[:-1]+1]
         self.meta['dimensionRanges']=dict(
             dimension0 = {'max':self.shape[0]-1,'min':0,
                           'size':self.shape[0],'unitScale':self.meta['dt']},
             dimension1 = {'max':chs[stopind],'min':chs[startind],
-               'size':np.array([len(chs[b:e+1]) for b, e in zip(startind,stopind)]),
+               'size':np.array([len(chs[b:e])+1 for b, e in zip(startind,stopind)]),
                'unitScale':self.meta['dx']})
         
         
