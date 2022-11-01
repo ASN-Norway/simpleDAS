@@ -335,7 +335,7 @@ def find_DAS_files(experiment_path, start, duration, channels=None, datatype='dp
             
             for ffid in sorted(os.listdir(ffiddir)):
                 try:
-                    ffidTime = str2datetime(date_in_exp+' '+ffid.rstrip('.hdf5'))
+                    ffidTime = str2datetime(date_in_exp+' '+os.path.splitext(ffid)[0])
                 except:
                     continue
                 if datetime_start-datetime.timedelta(seconds=11) < ffidTime <= datetime_stop+datetime.timedelta(seconds=1):
@@ -377,9 +377,12 @@ def find_DAS_files(experiment_path, start, duration, channels=None, datatype='dp
             print('\tData shape:            %d samples x %d channels' %(nSamples,nChs))
             print('\tGauge length:          %.1f m' % header['gaugeLength'])
             print('\tSensitivities:         %s' %','.join('%.2e %s' % (sens, unit) for sens,unit in zip(header['sensitivities'][:,0],header['sensitivityUnits'])))
-            dim1 = header['dimensionRanges']['dimension1']
-            print('\tRegions of interest:   %s' % ','.join(['%d:%d:%d' %(start,stop, (stop+1-start)//size)                        
+            try:
+                dim1 = header['dimensionRanges']['dimension1']
+                print('\tRegions of interest:   %s' % ','.join(['%d:%d:%d' %(start,stop, (stop+1-start)//size)                        
                     for start,stop,size in zip(dim1['min'],dim1['max'],dim1['size'])]))
+            except:
+                pass
             
         #calculate channel indices
         if isinstance(channels,slice):
