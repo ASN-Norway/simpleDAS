@@ -184,13 +184,13 @@ def load_DAS_files(filepaths, chIndex=None,samples=None, sensitivitySelect=0,
 
     elif sensitivitySelect==-1:
         unit_out=m['header']['unit'] #rad/m
-        sensitvity = 1.0
+        sensitivity = 1.0
         sensitivities_out = m['header']['sensitivities']
         sensitivityUnits_out = m['header']['sensitivityUnits']
 
     elif sensitivitySelect==-2:
         unit_out=_combine_units([m['header']['unit'],'m']) #rad
-        sensitvity = 1.0/m['header']['gaugeLength']
+        sensitivity = 1.0/m['header']['gaugeLength']
         sensitivities_out = m['header']['sensitivities']*m['header']['gaugeLength']
         sensitivityUnits_out = [_combine_units([sensitivityUnit,'m']) for sensitivityUnit in m['header']['sensitivityUnits']]
 
@@ -788,7 +788,7 @@ def _fix_meta(meta,nSamples,nChannels):
     if 'sensitivities' not in meta['header'] or 'NA' in meta['header']['sensitivityUnits']:
         meta['header']['sensitivities'] = np.atleast_2d(4*np.pi*meta['cableSpec']['zeta']\
                                         *meta['cableSpec']['refractiveIndex']/wavelength)
-        meta['header']['sensitivityUnit']=np.atleast_1d('rad/m/strain')
+        meta['header']['sensitivityUnits']=np.atleast_1d('rad/m/strain')
     elif 'sensitivityUnits' in meta['header'] and meta['header']['sensitivityUnits'][0] == 'strain/s': #bug in preliminary fileversion 8
         meta['header']['sensitivityUnits'] = ['rad/(strain*m)']
         
