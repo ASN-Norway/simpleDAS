@@ -1,0 +1,56 @@
+[version]
+source = "vcs"
+
+[version.raw-options]
+normalize = false
+
+[build.hooks.vcs]
+version-file = "src/simpledas/_version.py"
+template = """\
+# generated file: don't change or track in git
+__version__ = {version!r}
+__version_tuple__ = {version_tuple!r}
+if __name__ == "__main__":
+    print(__version__)
+"""
+
+[build.targets.wheel]
+packages = ["src/simpledas"]
+
+[envs.default]
+dependencies = [
+  "pytest",
+  "pytest-cov",
+  "pytest-shell"
+]
+
+[envs.default.scripts]
+cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=src/simpledas --cov=tests {args}"
+no-cov = "cov --no-cov {args}"
+
+[envs.lint]
+detached = true
+dependencies = [
+  "black",
+  "mypy >= 1.0.0",
+  "ruff",
+]
+
+[envs.lint.scripts]
+typing = "mypy --install-types --non-interactive {args:src/simpledas}"
+style = [
+  "ruff {args:.}",
+  "black --check --diff {args:.}",
+]
+fmt = [
+  "black {args:.}",
+  "ruff --fix {args:.}",
+  "style",
+]
+all = [
+  "style",
+  "typing",
+]
+
+[[envs.test.matrix]]
+python = ["3.10", "3.11"]

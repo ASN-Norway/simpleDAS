@@ -1,0 +1,89 @@
+[build-system]
+requires = ["hatchling","hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "simpledas"
+dynamic = ["version"]
+description = 'Library that enables simple reading, processing, and saving of the ASN OptoDAS file format.'
+readme = "README.md"
+requires-python = ">=3.8"
+license = "GPL-3.0-or-later"
+keywords = []
+authors = [
+  { name = "Ole Henrik Waagaard", email = "ole_henrik.waagaard@asn.com" },
+]
+maintainers = [
+  { name = "Ole Henrik Waagaard", email = "ole_henrik.waagaard@asn.com" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+    "h5py >= 3.7.0",
+    "numpy >= 1.23.4",
+    "pandas >= 2.0.1",
+    "sympy >=1.11.1",
+    "matplotlib >=3.7.0"
+]
+
+[project.urls]
+Documentation = "https://github.com/ASN-Norway/simpledas#readme"
+Issues = "https://github.com/ASN-Norway/simpledas/issues"
+Source = "https://github.com/ASN-Norway/simpledas"
+
+
+[project.scripts]
+print_hdf5 = "simpledas.print_hdf5:main"
+
+[tool.black]
+target-version = ["py311"]
+line-length = 99
+skip-string-normalization = true
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+]
+
+
+[tool.ruff]
+target-version = "py311"
+line-length = 99
+ignore = [
+    "F403",
+    "F405",
+    "E722",
+    "E501",
+]
+
+[tool.coverage.run]
+source_pkgs = ["simpledas", "tests"]
+branch = true
+parallel = true
+omit = [
+  "src/simpledas/__about__.py",
+]
+
+[tool.ruff.isort]
+known-first-party = ["simpledas"]
+
+[tool.ruff.per-file-ignores]
+"src/optools/typing.py" = ["F401"]
+
+
+[tool.coverage.paths]
+simpledas = ["src/simpledas", "*/simpledas/src/simpledas"]
+tests = ["tests", "*/simpledas/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
