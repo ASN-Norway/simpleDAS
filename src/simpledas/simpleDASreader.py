@@ -579,7 +579,8 @@ def get_data_indexes(
                 "\tRegions of interest:   %s"
                 % ",".join(
                     [
-                        "%d:%d:%d" % (start, stop, (stop - start + 1) // (size))
+                        "%d:%d:%d"
+                        % (start, stop, 1 if stop <= start else (stop - start) // (size - 1))
                         for start, stop, size in zip(dim1["min"], dim1["max"], dim1["size"])
                     ]
                 )
