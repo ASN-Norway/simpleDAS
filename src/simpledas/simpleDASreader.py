@@ -422,37 +422,61 @@ def find_DAS_files(
         The sample indices calculated from start and duration.
     """
 
+    # Lambda function to test a datestring, will fail if d is not a date string
+    def checkdate(d):
+        return datetime.datetime.strptime(d, "%Y%m%d").strftime("%Y%m%d")
+
+    exper_path = experiment_path
     dates_in_exp = []
     exppath_has_dates = False
-    for d in sorted(os.listdir(experiment_path)):  # get all dates
-        if os.path.isdir(os.path.join(experiment_path, d)):
+    for d in sorted(os.listdir(exper_path)):  # get all dates
+        if os.path.isdir(os.path.join(exper_path, d)):
             try:
-                dates_in_exp.append("%8d" % int(d))  # get dates
+                dates_in_exp.append(checkdate(d))
                 exppath_has_dates = True
-            except:
+            except ValueError:
                 pass
-    if len(dates_in_exp) == 0:  # dates found in exppath
-        dates_in_exp.append("19000101")  # placeholder for no dateinfo
+    if not exppath_has_dates:  # dates not found in exppath, parse levels up to find date
+        path = exper_path
+        dprev = ''
+        for n in range(2):
+            path, d = os.path.split(path)
+            try:
+                dates_in_exp.append(checkdate(d))
+                exppath_has_dates = True
+                exper_path = path
+                if len(dprev) > 0:  # datatype down 1 level from date
+                    datatype = dprev
+                break
+            except:
+                dprev = d
+                pass
+        if len(dates_in_exp) == 0:
+            dates_in_exp.append("19000101")  # placeholder for no dateinfo
 
     # get all files within selected start duration
     if isinstance(start, str):
         datetime_start = str2datetime(start)
     else:  # assume datetime object
         datetime_start = start
+    if datetime_start.year == 1900 and exppath_has_dates:
+        # no date set for start, set date to first date in experiment
+        datetime_start += str2datetime(dates_in_exp[0], True) - datetime.datetime(1900, 1, 1)
+
     if not isinstance(duration, datetime.timedelta):
         duration = datetime.timedelta(seconds=duration)
 
     datetime_stop = datetime_start + duration
 
     ffidpaths = []
-    headerTimes = []
+    header_times = []
     for date_in_exp in dates_in_exp:
         date1 = str2datetime(date_in_exp, True)
         if datetime_start.date() <= date1.date() <= datetime_stop.date():
             ffiddir = (
-                os.path.join(experiment_path, date_in_exp, datatype)
+                os.path.join(exper_path, date_in_exp, datatype)
                 if exppath_has_dates
-                else experiment_path
+                else exper_path
             )
 
             for ffid in sorted(os.listdir(ffiddir)):
@@ -468,24 +492,28 @@ def find_DAS_files(
                     ffidpath = os.path.join(ffiddir, ffid)
                     # ffidTime may be off by upto 1s. Check headerTime
                     with h5pydict.DictFile(ffidpath, "r") as f:
-                        headerTime = datetime.datetime.utcfromtimestamp(
+                        header_time = datetime.datetime.utcfromtimestamp(
                             float(f["header"]["time"][()])
                         )
-                        f["header"]["dt"]
+                    if datetime_start.year == 1900:
+                        # remove date from header_time
+                        header_time += datetime.datetime(1900, 1, 1) - datetime.datetime.combine(
+                            header_time.date(), datetime.time(0)
+                        )
                     if (
-                        datetime_start - datetime.timedelta(seconds=10)
-                        < headerTime
+                        (datetime_start - datetime.timedelta(seconds=10))
+                        < header_time
                         <= datetime_stop
                     ):
                         ffidpaths.append(ffidpath)
-                        headerTimes.append(headerTime)
+                        header_times.append(header_time)
 
     if len(ffidpaths) > 0:
         if load_file_from_start:
-            startTime = 0.0
+            start_time = 0.0
         else:
-            startTime = max(0.0, (datetime_start - headerTimes[0]).total_seconds())
-        trange = (startTime, startTime + duration.total_seconds())
+            start_time = max(0.0, (datetime_start - header_times[0]).total_seconds())
+        trange = (start_time, start_time + duration.total_seconds())
         chIndex, samples = get_data_indexes(ffidpaths, trange, channels, show_header_info)
     else:
         chIndex = None
