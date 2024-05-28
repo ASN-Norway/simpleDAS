@@ -919,7 +919,7 @@ def create_time_axis(tstart: datetime.datetime, nSamples: int, dt: float):
     """
 
     return tstart + pd.timedelta_range(
-        start="0s", periods=nSamples, freq="%dN" % int(dt * 1e9 + 0.5)
+        start="0s", periods=nSamples, freq="%dns" % int(dt * 1e9 + 0.5)
     )
 
 
