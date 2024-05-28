@@ -1183,3 +1183,6 @@ def _fix_meta_back_compability(meta: dict, nSamples: int, nChannels: int):
 
     if "unit" in meta["header"]:
         meta["header"]["unit"] = meta["header"]["unit"].replace("·", "*").replace("ε", "strain")
+
+    if not "sensorType" in meta["header"]:
+        meta["header"]["sensorType"] = ["D"]
